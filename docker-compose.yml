@@ -1,7 +1,7 @@
-version: '3.8'
-
 services:
   playlister:
+    # Uncomment to possibly use the pre-built image (and then comment out build)
+    #image: ghcr.io/ticoombs/playlister:latest
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -22,34 +22,8 @@ services:
       - PLAYLISTER_PLAYLIST_PATH=/playlists
       - PLAYLISTER_CONFIG_PATH=/config
       - PYTHONUNBUFFERED=1
-    # Optional: uncomment for web UI
-    # ports:
-    #   - "5000:5000"
     stdin_open: true
     tty: true
-
-  # Optional: Uncomment for web UI service
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile
-  #   container_name: playlister-web
-  #   user: "${UID:-1000}:${GID:-1000}"
-  #   volumes:
-  #     - ${MUSIC_PATH:-~/Music}:/music:ro
-  #     - ./data:/data
-  #     - ./playlists:/playlists
-  #     - ./config:/config
-  #   environment:
-  #     - PLAYLISTER_MUSIC_PATH=/music
-  #     - PLAYLISTER_DATA_PATH=/data
-  #     - PLAYLISTER_PLAYLIST_PATH=/playlists
-  #     - PLAYLISTER_CONFIG_PATH=/config
-  #   ports:
-  #     - "5000:5000"
-  #   command: ["python3", "-m", "src.web.app"]
-  #   depends_on:
-  #     - playlister
 
 networks:
   default:

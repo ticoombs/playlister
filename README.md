@@ -11,6 +11,7 @@ Because I wanted automatic playlists so I can just hit play. No streaming servic
 Analyzes your local music files and generates playlists based on mood. Songs are ordered with smooth transitions using BPM matching, key compatibility, and energy flow. Like having a DJ that knows your entire library.
 
 **Default moods (fully customizable):**
+
 - Uplifting
 - Rock Out
 - Dance
@@ -29,14 +30,16 @@ M3U8, PLS, JSON
 
 - Docker and Docker Compose
 - A music library
-- About 1GB disk space for the Docker image
+- About 3GB disk space for the Docker image (it's beefy)
 
 ## Installation
+
+### Option 0: Setup
 
 Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/playlister.git
+git clone https://github.com/ticoombs/playlister.git
 cd playlister
 ```
 
@@ -50,32 +53,24 @@ Edit `.env` and set `MUSIC_PATH` to your music library location:
 
 ```bash
 MUSIC_PATH=/path/to/your/music
-UID=1000  # Your user ID (run: id -u)
-GID=1000  # Your group ID (run: id -g)
+UID=1000  # Your user ID/the owner of your music (run: id -u)
+GID=1000  # Your group ID/the group of your music (run: id -g)
 ```
 
-Build the Docker image:
+### Option 1: Build from Source (Recommended)
+
+Build your image locally (takes 10-15 minutes):
 
 ```bash
-# For testing with sample music (fast build)
-docker-compose -f docker-compose.test.yml build
-
-# For production with real audio analysis (takes longer)
 docker-compose build
 ```
 
-## Quick Test
+### Option 2: Pull pre-built image (it's huge. So don't and I'm not supporting it)
 
-Test with the included sample music:
-
-```bash
-docker-compose -f docker-compose.test.yml run --rm playlister-test
-```
-
-Check the results:
+Pull the pre-built image: (if you are lucky)
 
 ```bash
-ls -lh playlists/
+docker-compose pull
 ```
 
 ## Usage
@@ -206,6 +201,7 @@ moods:
 ```
 
 **Available features for mood definitions:**
+
 - `tempo`: BPM (beats per minute)
 - `energy`: Intensity level (0-1)
 - `valence`: Musical positivity (0-1, low = sad, high = happy)
@@ -240,6 +236,7 @@ The system is optimized for large libraries (10,000+ songs):
 - **Force re-extraction:** Use `--force` flag if you need to recompute features
 
 Example workflow for adding 100 new songs to a 10,000 song library:
+
 ```bash
 # Only the 100 new songs will be processed
 docker-compose run --rm playlister scan /music
@@ -258,12 +255,14 @@ docker-compose run --rm playlister scan /music --stream
 ```
 
 Or enable in config:
+
 ```yaml
 scanner:
   stream_mode: true
 ```
 
 **Memory usage:**
+
 - Normal mode: ~10-50 MB for 100k file paths (shows progress bar)
 - Stream mode: ~constant memory (shows count every 100 files)
 
@@ -302,10 +301,12 @@ All audio files are discovered recursively at any depth.
 You can store playlists anywhere:
 
 **Outside music directory** (default):
+
 - Config: `playlists: /playlists`
 - Paths in playlists: `../music/Artist/Song.mp3`
 
 **Inside music directory** (optional):
+
 - Config: `playlists: /music/Playlists`
 - Paths in playlists: `../Artist/Song.mp3`
 - Add `Playlists` to `scanner.exclude_patterns` to prevent scanning playlist files
@@ -359,7 +360,9 @@ MIT
 ## Credits
 
 Built using:
+
 - Essentia (audio analysis)
 - mutagen (metadata extraction)
 - SQLAlchemy (database)
 - Click (CLI framework)
+

@@ -13,10 +13,11 @@ RUN apt-get update && apt-get install -y \
     libavcodec-dev \
     libavformat-dev \
     libavutil-dev \
-    libavresample-dev \
+    libswresample-dev \
     libsamplerate0-dev \
     libtag1-dev \
     libchromaprint-dev \
+    libeigen3-dev \
     python3-dev \
     python3-numpy \
     python3-yaml \
@@ -26,11 +27,14 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+# Create python symlink for waf
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 # Build Essentia
 WORKDIR /tmp
 RUN git clone https://github.com/MTG/essentia.git && \
     cd essentia && \
-    ./waf configure --mode=release --build-static --with-python --with-examples --with-gaia && \
+    ./waf configure --mode=release --build-static --with-python --with-examples && \
     ./waf && \
     ./waf install && \
     ldconfig
@@ -51,7 +55,7 @@ RUN apt-get update && apt-get install -y \
     libavcodec58 \
     libavformat58 \
     libavutil56 \
-    libavresample4 \
+    libswresample3 \
     libsamplerate0 \
     libtag1v5 \
     libchromaprint1 \
