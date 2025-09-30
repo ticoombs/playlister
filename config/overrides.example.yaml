@@ -1,0 +1,58 @@
+# Manual Overrides Configuration
+# Use this file to manually override song classifications and settings
+
+# Skip songs entirely (never include in any playlist)
+skip_songs:
+  # - /music/Artist/Album/BadSong.mp3
+  # - /music/Artist/Album/AnotherBadSong.mp3
+
+# Force specific mood assignments
+mood_overrides:
+  # /music/Artist/Album/Song.mp3: chill
+  # /music/AnotherArtist/Album/Song.mp3: uplifting
+
+# Custom mood definitions (in addition to default moods)
+custom_moods:
+  # study:
+  #   description: "Focus and concentration music"
+  #   valence: [0.4, 0.7]
+  #   energy: [0.2, 0.5]
+  #   acousticness: [0.5, 1.0]
+  #   instrumental: [0.7, 1.0]
+
+  # workout:
+  #   description: "High-intensity workout music"
+  #   energy: [0.8, 1.0]
+  #   tempo: [140, 180]
+  #   danceability: [0.6, 1.0]
+
+# Artist preferences
+artist_preferences:
+  # boost:  # Increase likelihood of selection
+  #   - "Favorite Artist"
+  #   - "Another Favorite"
+  # reduce:  # Decrease likelihood of selection
+  #   - "Overplayed Artist"
+
+# Album preferences
+album_preferences:
+  # skip_albums:
+  #   - "Artist - Poorly Recorded Album"
+  # favorite_albums:
+  #   - "Artist - Masterpiece Album"
+
+# Year/era preferences
+era_preferences:
+  # boost_years:
+  #   - 1980
+  #   - 1990
+  # skip_years:
+  #   - 2020
+
+# Genre overrides (if metadata contains genre tags)
+genre_mood_mapping:
+  # "Classical": relax
+  # "Metal": rock_out
+  # "Jazz": chill
+  # "Electronic": dance
+  # "Acoustic": relax

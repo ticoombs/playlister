@@ -1,0 +1,214 @@
+# Playlister Configuration
+# Copy this file to config.yaml and customize
+
+# Paths
+paths:
+  music: /music  # Path to music library (container path)
+  data: /data    # Path to database and cache
+  playlists: /playlists  # Path for generated playlists (use /music/Playlists if inside music dir)
+  config: /config  # Path to config files
+
+# Database
+database:
+  path: /data/playlister.db
+  backup_on_startup: true
+  backup_count: 5
+
+# Feature Extraction
+extraction:
+  # Parallel processing
+  workers: 4  # Number of parallel workers (0 = auto-detect CPU count)
+
+  # Batch size for processing
+  batch_size: 100
+
+  # Resume incomplete scans
+  resume_enabled: true
+
+  # Cache settings
+  cache_features: true
+  force_reextract: false  # Re-extract even if features exist
+
+  # Skip files modified more recently than this many seconds ago (to avoid incomplete files)
+  min_file_age_seconds: 5
+
+# Supported audio formats
+audio_formats:
+  - .mp3
+  - .flac
+  - .wav
+  - .m4a
+  - .ogg
+  - .wma
+  - .opus
+
+# Scanner Settings
+scanner:
+  # Exclude directories matching these patterns from scanning
+  # This prevents scanning playlist directories, backup folders, etc.
+  # Patterns are matched against directory names (not full paths)
+  exclude_patterns:
+    - "Playlists"  # Exclude any directory named "Playlists"
+    - "playlists"  # Case-sensitive variant
+    - ".backup"    # Hidden backup directories
+    - "@eaDir"     # Synology thumbnail directories
+    # Add more patterns as needed:
+    # - "temp"
+    # - "cache"
+
+  # Whether to follow symbolic links
+  follow_symlinks: false
+
+  # Minimum file size in bytes (ignore files smaller than this)
+  min_file_size: 1024  # 1 KB
+
+  # Stream mode for very large libraries (100k+ files)
+  # If true, files are processed without loading full file list into memory
+  # Trade-off: no progress bar percentage, but uses constant memory
+  stream_mode: false
+
+# Mood Classification
+# You can define ANY mood you want by specifying audio feature ranges.
+# The moods below are just examples - add, remove, or modify as needed.
+# For more examples see config/moods-extended.yaml
+#
+# Available features:
+#   tempo: BPM (beats per minute), typically 60-180
+#   energy: Intensity level, 0.0-1.0
+#   valence: Musical positivity (0=sad, 1=happy), 0.0-1.0
+#   danceability: Rhythmic stability, 0.0-1.0
+#   acousticness: Acoustic vs electronic, 0.0-1.0
+#   instrumentalness: Vocal vs instrumental, 0.0-1.0
+#   loudness: Overall loudness, 0.0-1.0
+
+moods:
+  # Default moods (customize or replace with your own)
+
+  uplifting:
+    valence: [0.65, 1.0]      # Happy, positive
+    energy: [0.55, 0.85]      # Moderate to high energy
+    tempo: [110, 170]         # Moderate to upbeat tempo
+
+  rock_out:
+    energy: [0.75, 1.0]       # High energy required
+    valence: [0.35, 0.75]     # Can be intense or aggressive
+    tempo: [130, 180]         # Fast, driving tempo
+    loudness: [0.65, 1.0]     # Must be loud
+
+  dance:
+    danceability: [0.65, 1.0] # Highly danceable
+    energy: [0.65, 1.0]       # High energy
+    tempo: [115, 135]         # Consistent dance tempo
+
+  chill:
+    energy: [0.25, 0.45]      # Low to moderate energy
+    valence: [0.45, 0.75]     # Generally positive
+    tempo: [85, 115]          # Relaxed tempo
+
+  relax:
+    energy: [0.0, 0.25]       # Very low energy
+    valence: [0.35, 0.65]     # Calm, neutral
+    tempo: [65, 95]           # Slow tempo
+    acousticness: [0.5, 1.0]  # More acoustic
+
+  # Example custom moods (uncomment and modify as needed):
+
+  # aggressive:
+  #   energy: [0.8, 1.0]
+  #   valence: [0.0, 0.4]
+  #   tempo: [140, 200]
+  #   loudness: [0.7, 1.0]
+
+  # melancholy:
+  #   energy: [0.2, 0.5]
+  #   valence: [0.0, 0.3]
+  #   tempo: [70, 100]
+  #   acousticness: [0.4, 1.0]
+
+  # party:
+  #   energy: [0.7, 1.0]
+  #   danceability: [0.7, 1.0]
+  #   tempo: [120, 140]
+  #   valence: [0.6, 1.0]
+
+  # study:
+  #   energy: [0.2, 0.4]
+  #   instrumentalness: [0.5, 1.0]
+  #   tempo: [80, 110]
+  #   acousticness: [0.3, 0.8]
+
+  # workout:
+  #   energy: [0.75, 1.0]
+  #   tempo: [140, 180]
+  #   danceability: [0.6, 1.0]
+
+# Playlist Generation
+playlist:
+  # Default settings
+  default_length: 50  # Number of songs
+  default_duration_minutes: null  # Alternative to song count (null = use count)
+
+  # Transition quality settings
+  transitions:
+    bpm_tolerance: 10  # ±BPM for consecutive songs
+    energy_max_jump: 0.2  # Maximum energy difference between songs
+    key_compatibility: true  # Use Camelot wheel for harmonic mixing
+    spectral_weight: 0.3  # Weight for spectral similarity (0-1)
+
+  # Smart shuffle settings
+  smart_shuffle:
+    avoid_same_artist_within: 5  # Don't repeat artist within N songs
+    avoid_same_album_within: 10  # Don't repeat album within N songs
+    avoid_same_year_within: 3  # Don't repeat year within N songs (0 = disabled)
+
+  # Diversity vs similarity balance
+  diversity_factor: 0.3  # 0 = max similarity, 1 = max diversity
+
+  # Seed song mode
+  seed_song:
+    similarity_threshold: 0.7  # Minimum similarity for inclusion
+    max_distance: 0.5  # Maximum feature distance
+
+# Export Settings
+export:
+  default_format: m3u8  # m3u, m3u8, pls, json
+  path_style: relative  # relative, absolute (You will always want this to be relative due to docker)
+  base_path_substitution: null  # e.g., "/music" -> "/mnt/music"
+  include_metadata: true  # Include extended info in playlists
+
+# Logging
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  format: "[{time:YYYY-MM-DD HH:mm:ss}] {level: <8} | {message}"
+  file: /data/playlister.log
+  rotation: "10 MB"
+  retention: "1 week"
+
+# Performance
+performance:
+  # Memory management
+  max_memory_mb: 4096  # Maximum memory usage
+
+  # Cache settings
+  feature_cache_size: 10000  # Number of feature vectors to cache in memory
+
+  # Database optimization
+  db_page_size: 4096
+  db_cache_size: 10000
+
+# Advanced
+advanced:
+  # Feature extraction parameters (Essentia-specific)
+  # ref: https://github.com/MTG/essentia <- It's the reason this was such an easy tool to create
+  essentia_profile: music  # music, default
+
+  # Classification
+  use_pretrained_models: true  # Use Essentia's pre-trained mood models
+  confidence_threshold: 0.85  # Minimum confidence for auto-classification (0.85 = very strict)
+  strict_matching: true  # Require ALL features to be in range (recommended)
+
+  # Manual overrides
+  overrides_file: /config/overrides.yaml
+
+  # Experimental features
+  enable_experimental: false

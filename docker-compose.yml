@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  playlister:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: playlister
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      # Music library (read-only)
+      - ${MUSIC_PATH:-~/Music}:/music:ro
+      # Persistent database and cache
+      - ./data:/data
+      # Generated playlists
+      - ./playlists:/playlists
+      # Configuration files
+      - ./config:/config
+    environment:
+      - PLAYLISTER_MUSIC_PATH=/music
+      - PLAYLISTER_DATA_PATH=/data
+      - PLAYLISTER_PLAYLIST_PATH=/playlists
+      - PLAYLISTER_CONFIG_PATH=/config
+      - PYTHONUNBUFFERED=1
+    # Optional: uncomment for web UI
+    # ports:
+    #   - "5000:5000"
+    stdin_open: true
+    tty: true
+
+  # Optional: Uncomment for web UI service
+  # web:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile
+  #   container_name: playlister-web
+  #   user: "${UID:-1000}:${GID:-1000}"
+  #   volumes:
+  #     - ${MUSIC_PATH:-~/Music}:/music:ro
+  #     - ./data:/data
+  #     - ./playlists:/playlists
+  #     - ./config:/config
+  #   environment:
+  #     - PLAYLISTER_MUSIC_PATH=/music
+  #     - PLAYLISTER_DATA_PATH=/data
+  #     - PLAYLISTER_PLAYLIST_PATH=/playlists
+  #     - PLAYLISTER_CONFIG_PATH=/config
+  #   ports:
+  #     - "5000:5000"
+  #   command: ["python3", "-m", "src.web.app"]
+  #   depends_on:
+  #     - playlister
+
+networks:
+  default:
+    name: playlister-network

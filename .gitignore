@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data and generated files
+data/*.db
+data/*.db-journal
+data/cache/
+playlists/*.m3u
+playlists/*.m3u8
+playlists/*.pls
+playlists/*.json
+music
+
+# Configuration (keep templates)
+config/*.yaml
+config/*.yml
+!config/*.example.yaml
+!config/*.example.yml
+.env
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+
+# Docker
+.dockerignore
