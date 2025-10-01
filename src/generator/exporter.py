@@ -16,7 +16,7 @@ from src.storage.schema import Playlist, PlaylistSong
 class PlaylistExporter:
     """Export playlists to various formats."""
 
-    def __init__(self, db: Database, output_dir: str, music_base_path: Optional[str] = None):
+    def __init__(self, db: Database, output_dir: str, music_base_path: Optional[str] = None, path_prefix: Optional[str] = None):
         """
         Initialize playlist exporter.
 
@@ -24,11 +24,13 @@ class PlaylistExporter:
             db: Database instance
             output_dir: Output directory for playlists
             music_base_path: Base path for music library (for path substitution)
+            path_prefix: Optional prefix to override in playlist paths (e.g., "/music" for Gonic)
         """
         self.db = db
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.music_base_path = music_base_path
+        self.path_prefix = path_prefix
 
     def export(self, playlist_id: int, format: str = 'm3u8') -> Optional[str]:
         """
@@ -89,6 +91,7 @@ class PlaylistExporter:
         1. Playlists outside music dir: ../music/Artist/Song.mp3
         2. Playlists inside music dir: ../Artist/Song.mp3
         3. Docker container paths: converts /app/music/... to relative paths
+        4. Path prefix override: /music/Artist/Song.mp3 (for Gonic compatibility)
 
         Args:
             file_path: Original file path from database
@@ -97,6 +100,33 @@ class PlaylistExporter:
             Converted path suitable for playlist
         """
         path = Path(file_path)
+
+        # If path_prefix is set, use it to override the default relative path logic
+        if self.path_prefix:
+            # Extract the relative path from music directory
+            if self.music_base_path:
+                try:
+                    music_base = Path(self.music_base_path)
+                    # Try to get relative path from music base
+                    if path.is_absolute() and music_base.is_absolute():
+                        try:
+                            rel_path = path.relative_to(music_base)
+                            return str(Path(self.path_prefix) / rel_path)
+                        except ValueError:
+                            pass
+
+                    # Try finding 'music' in path hierarchy
+                    parts = path.parts
+                    if 'music' in parts:
+                        music_idx = parts.index('music')
+                        if len(parts) > music_idx + 1:
+                            rel_path = Path(*parts[music_idx+1:])
+                            return str(Path(self.path_prefix) / rel_path)
+                except Exception as e:
+                    logger.debug(f"Path prefix conversion failed: {e}")
+
+            # Fallback: just use filename with prefix
+            return str(Path(self.path_prefix) / path.name)
 
         # If music_base_path is specified, try to make relative to it
         if self.music_base_path:

@@ -25,7 +25,7 @@ Lossless: FLAC, WAV, AIFF, APE, WavPack, TTA, TAK
 Lossy: MP3, Ogg Vorbis, Opus, AAC (M4A/MP4), Musepack, WMA, Speex
 
 **Playlist formats:**
-M3U8, PLS, JSON
+M3U, M3U8, PLS, JSON
 
 ## Requirements
 
@@ -119,16 +119,34 @@ Generate a playlist:
 docker-compose run --rm playlister generate --mood chill --count 50 --name "Sunday Morning"
 ```
 
-Playlists are automatically exported to M3U8 format in the `playlists/` directory.
+Playlists are automatically exported to M3U format in the `playlists/` directory.
 
 Export an existing playlist to different formats:
 
 ```bash
 # Export playlist by ID (see history command for IDs)
+docker-compose run --rm playlister export 1 --format m3u
 docker-compose run --rm playlister export 1 --format m3u8
 docker-compose run --rm playlister export 1 --format json
 docker-compose run --rm playlister export 1 --format pls
 ```
+
+### Playlist Path Configuration
+
+By default, playlists use relative paths (e.g., `../music/Artist/Song.mp3`). For compatibility with music servers like Gonic, you can configure a path prefix:
+
+**In config file** (`config/config.yaml`):
+```yaml
+playlist_prefix: /music  # Paths will be /music/Artist/Song.mp3
+```
+
+**Or via CLI flag:**
+```bash
+docker-compose run --rm playlister generate --mood chill --count 50 --prefix /music
+docker-compose run --rm playlister export 1 --format m3u --prefix /music
+```
+
+The CLI flag overrides the config setting.
 
 View playlist history:
 
@@ -252,7 +270,7 @@ docker-compose run --rm playlister generate --mood aggressive --count 50
 
 Processing times on a typical system:
 
-- Scanning: 100 files/second
+- Scanning: 10 files/second (25k files took ~ 50 minutes)
 - Feature extraction: 1-5 files/second (only runs on new files)
 - Classification: 1000 files/second
 - Playlist generation: Under 1 second for 100 songs
@@ -274,7 +292,7 @@ docker-compose run --rm playlister scan /music
 docker-compose run --rm playlister classify
 ```
 
-The existing 9,900 songs are skipped automatically - processing takes seconds instead of hours.
+The existing 10,000 songs are skipped automatically and it only adds 100 - processing takes seconds instead of hours.
 
 ### Very Large Libraries (100k+ files)
 
@@ -308,7 +326,7 @@ Playlists achieve 0.80-0.90 average transition scores through:
 
 ## Nested Directory Support
 
-The scanner automatically handles any directory structure:
+The scanner automatically handles any directory structure: (Random artists shown)
 
 ```
 /music/

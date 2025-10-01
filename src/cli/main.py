@@ -405,8 +405,9 @@ def classify(ctx):
 @click.option('--mood', help='Mood for playlist (e.g., chill, uplifting)')
 @click.option('--count', default=50, help='Number of songs in playlist')
 @click.option('--name', help='Playlist name')
+@click.option('--prefix', help='Path prefix for playlist files (e.g., /music for Gonic)')
 @click.pass_context
-def generate(ctx, mood, count, name):
+def generate(ctx, mood, count, name, prefix):
     """Generate a playlist."""
     config = ctx.obj
 
@@ -444,10 +445,11 @@ def generate(ctx, mood, count, name):
         from src.generator.exporter import PlaylistExporter
         output_dir = config.get('paths', 'playlists', default='/playlists')
         music_path = config.get('paths', 'music', default='/music')
-        exporter = PlaylistExporter(db, output_dir, music_base_path=music_path)
+        path_prefix = prefix or config.get('playlist_prefix')
+        exporter = PlaylistExporter(db, output_dir, music_base_path=music_path, path_prefix=path_prefix)
 
-        # Export to M3U8 by default
-        output_file = exporter.export(playlist.id, 'm3u8')
+        # Export to M3U by default (better compatibility with Gonic and other players)
+        output_file = exporter.export(playlist.id, 'm3u')
         if output_file:
             logger.info(f"  Exported: {output_file}")
     else:
@@ -459,8 +461,9 @@ def generate(ctx, mood, count, name):
 @click.argument('playlist_id', type=int)
 @click.option('--format', 'fmt', default='m3u8', type=click.Choice(['m3u', 'm3u8', 'pls', 'json']))
 @click.option('--output', help='Output directory (default: from config)')
+@click.option('--prefix', help='Path prefix for playlist files (e.g., /music for Gonic)')
 @click.pass_context
-def export(ctx, playlist_id, fmt, output):
+def export(ctx, playlist_id, fmt, output, prefix):
     """Export a playlist to file."""
     config = ctx.obj
 
@@ -479,7 +482,8 @@ def export(ctx, playlist_id, fmt, output):
     # Initialize exporter
     output_dir = output or config.get('paths', 'playlists', default='/playlists')
     music_path = config.get('paths', 'music', default='/music')
-    exporter = PlaylistExporter(db, output_dir, music_base_path=music_path)
+    path_prefix = prefix or config.get('playlist_prefix')
+    exporter = PlaylistExporter(db, output_dir, music_base_path=music_path, path_prefix=path_prefix)
 
     # Export playlist
     output_file = exporter.export(playlist_id, fmt)

@@ -193,6 +193,9 @@ export:
   base_path_substitution: null  # e.g., "/music" -> "/mnt/music"
   include_metadata: true  # Include extended info in playlists
 
+# Playlist Settings
+playlist_prefix: null  # Override path prefix in playlists (e.g., "/music" for Gonic compatibility)
+
 # Logging
 logging:
   level: INFO  # DEBUG, INFO, WARNING, ERROR
