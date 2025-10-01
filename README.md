@@ -21,7 +21,8 @@ Analyzes your local music files and generates playlists based on mood. Songs are
 You can define any mood you want by specifying audio feature ranges in the configuration.
 
 **Audio formats:**
-MP3, FLAC, WAV, M4A, OGG, WMA, Opus
+Lossless: FLAC, WAV, AIFF, APE, WavPack, TTA, TAK
+Lossy: MP3, Ogg Vorbis, Opus, AAC (M4A/MP4), Musepack, WMA, Speex
 
 **Playlist formats:**
 M3U8, PLS, JSON
@@ -81,13 +82,26 @@ Initialize the database:
 docker-compose run --rm playlister init
 ```
 
-Scan your music library:
+Edit the configuration as desired. (See Below for explanation)
+
+```bash
+vim config/config.yaml
+
+```
+
+Scan your music library (automatically extracts features):
 
 ```bash
 docker-compose run --rm playlister scan /music
 ```
 
-Extract audio features (tempo, energy, key, etc):
+The scan command automatically extracts audio features (tempo, energy, key, etc.) for all new files. To skip feature extraction and only scan file metadata:
+
+```bash
+docker-compose run --rm playlister scan /music --no-extract
+```
+
+Or run feature extraction separately:
 
 ```bash
 docker-compose run --rm playlister extract
@@ -103,6 +117,23 @@ Generate a playlist:
 
 ```bash
 docker-compose run --rm playlister generate --mood chill --count 50 --name "Sunday Morning"
+```
+
+Playlists are automatically exported to M3U8 format in the `playlists/` directory.
+
+Export an existing playlist to different formats:
+
+```bash
+# Export playlist by ID (see history command for IDs)
+docker-compose run --rm playlister export 1 --format m3u8
+docker-compose run --rm playlister export 1 --format json
+docker-compose run --rm playlister export 1 --format pls
+```
+
+View playlist history:
+
+```bash
+docker-compose run --rm playlister history
 ```
 
 View your library statistics:
@@ -365,4 +396,3 @@ Built using:
 - mutagen (metadata extraction)
 - SQLAlchemy (database)
 - Click (CLI framework)
-

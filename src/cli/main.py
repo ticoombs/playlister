@@ -98,21 +98,47 @@ def init(ctx):
 
 
 @cli.command()
-@click.argument('path', type=click.Path(exists=True))
+@click.argument('path', type=click.Path(exists=True), required=False)
 @click.option('--no-extract', is_flag=True, help='Only scan files, do not extract features')
 @click.option('--stream', is_flag=True, help='Stream mode for very large libraries (saves memory, no progress bar)')
+@click.option('--workers', type=int, default=4, help='Number of parallel workers for scanning (default: 4)')
+@click.option('--resume', 'resume_scan_id', help='Resume interrupted scan by scan ID')
+@click.option('--list-interrupted', is_flag=True, help='List interrupted scans that can be resumed')
 @click.pass_context
-def scan(ctx, path, no_extract, stream):
+def scan(ctx, path, no_extract, stream, workers, resume_scan_id, list_interrupted):
     """Scan music library and extract features."""
     config = ctx.obj
-    logger.info(f"Scanning music library: {path}")
 
     # Initialize database
     db_path = config.get('database', 'path', default='/data/playlister.db')
     db = Database(db_path)
     db.init(backup_on_startup=False)
 
-    # Initialize scanner
+    # Handle list interrupted scans
+    if list_interrupted:
+        with db.session_scope() as session:
+            scanner = MusicScanner(database_session=session)
+            interrupted = scanner.get_interrupted_scans()
+            
+            if not interrupted:
+                logger.info("No interrupted scans found")
+                return
+            
+            logger.info("Interrupted scans that can be resumed:")
+            for scan in interrupted:
+                logger.info(f"  {scan['scan_id']}: {scan['root_path']}")
+                logger.info(f"    Started: {scan['started_at']}")
+                logger.info(f"    Progress: {scan['files_processed']} files, {scan['directories_completed']} directories completed")
+        return
+
+    # Path is required for actual scanning
+    if not path:
+        logger.error("Path argument is required for scanning")
+        return
+
+    logger.info(f"Scanning music library: {path}")
+
+    # Initialize scanner configuration
     audio_formats = config.get('audio_formats', default=['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.wma'])
     exclude_patterns = config.get('scanner', 'exclude_patterns', default=['Playlists', 'playlists'])
     follow_symlinks = config.get('scanner', 'follow_symlinks', default=False)
@@ -122,7 +148,8 @@ def scan(ctx, path, no_extract, stream):
         audio_formats=audio_formats,
         exclude_patterns=exclude_patterns,
         follow_symlinks=follow_symlinks,
-        min_file_size=min_file_size
+        min_file_size=min_file_size,
+        workers=workers
     )
 
     if exclude_patterns:
@@ -131,73 +158,174 @@ def scan(ctx, path, no_extract, stream):
     if stream:
         logger.info("Using stream mode - suitable for 100k+ file libraries")
 
-    # Scan directory
-    scanned_count = 0
+    # Scan directory with resumption capability
+    new_count = 0
+    updated_count = 0
+    skipped_count = 0
     error_count = 0
+    current_scan_id = None
 
     with db.session_scope() as session:
         from src.storage.schema import Song
+        
+        # Create scanner with database session for resumption
+        resumption_scanner = MusicScanner(
+            audio_formats=audio_formats,
+            exclude_patterns=exclude_patterns,
+            follow_symlinks=follow_symlinks,
+            min_file_size=min_file_size,
+            workers=1,  # Resumption mode uses single-threaded processing
+            database_session=session
+        )
 
-        for scanned_file in scanner.scan_directory(path, recursive=True, show_progress=not stream, stream_mode=stream):
-            if scanned_file.error:
-                error_count += 1
-                logger.error(f"Error scanning {scanned_file.file_path}: {scanned_file.error}")
-                continue
-
-            # Check if song already exists
-            existing = session.query(Song).filter_by(file_path=scanned_file.file_path).first()
-
-            if existing:
-                # Check if file has been modified
-                if existing.mtime and existing.mtime >= scanned_file.mtime:
-                    logger.debug(f"Skipping unchanged file: {scanned_file.file_path}")
+        # Use resumption-capable scanning if supported, otherwise fall back to regular scanning
+        if stream or not resume_scan_id:
+            # Use regular scanning for stream mode or when not resuming
+            scan_iterator = scanner.scan_directory(path, recursive=True, show_progress=not stream, stream_mode=stream)
+            
+            for scanned_file in scan_iterator:
+                if scanned_file.error:
+                    error_count += 1
+                    logger.error(f"Error scanning {scanned_file.file_path}: {scanned_file.error}")
                     continue
-                else:
-                    logger.info(f"Updating modified file: {scanned_file.file_path}")
-                    # Update existing record
-                    existing.file_hash = scanned_file.file_hash
-                    existing.file_size = scanned_file.file_size
-                    existing.mtime = scanned_file.mtime
-                    existing.title = scanned_file.title
-                    existing.artist = scanned_file.artist
-                    existing.album = scanned_file.album
-                    existing.album_artist = scanned_file.album_artist
-                    existing.year = scanned_file.year
-                    existing.genre = scanned_file.genre
-                    existing.track_number = scanned_file.track_number
-                    existing.duration = scanned_file.duration
-                    existing.format = scanned_file.format
-                    existing.bitrate = scanned_file.bitrate
-                    existing.sample_rate = scanned_file.sample_rate
-            else:
-                # Create new song record
-                song = Song(
-                    file_path=scanned_file.file_path,
-                    file_hash=scanned_file.file_hash,
-                    file_size=scanned_file.file_size,
-                    mtime=scanned_file.mtime,
-                    title=scanned_file.title,
-                    artist=scanned_file.artist,
-                    album=scanned_file.album,
-                    album_artist=scanned_file.album_artist,
-                    year=scanned_file.year,
-                    genre=scanned_file.genre,
-                    track_number=scanned_file.track_number,
-                    duration=scanned_file.duration,
-                    format=scanned_file.format,
-                    bitrate=scanned_file.bitrate,
-                    sample_rate=scanned_file.sample_rate
-                )
-                session.add(song)
-                logger.debug(f"Added: {scanned_file.title or scanned_file.file_path}")
 
-            scanned_count += 1
+                try:
+                    existing = session.query(Song).filter_by(file_path=scanned_file.file_path).first()
 
-            # Commit in batches
-            if scanned_count % 100 == 0:
-                session.commit()
+                    if existing:
+                        if existing.mtime and existing.mtime >= scanned_file.mtime:
+                            logger.debug(f"Skipping unchanged file: {scanned_file.file_path}")
+                            skipped_count += 1
+                            continue
+                        else:
+                            logger.info(f"Updating modified file: {scanned_file.file_path}")
+                            existing.file_hash = scanned_file.file_hash
+                            existing.file_size = scanned_file.file_size
+                            existing.mtime = scanned_file.mtime
+                            existing.title = scanned_file.title
+                            existing.artist = scanned_file.artist
+                            existing.album = scanned_file.album
+                            existing.album_artist = scanned_file.album_artist
+                            existing.year = scanned_file.year
+                            existing.genre = scanned_file.genre
+                            existing.track_number = scanned_file.track_number
+                            existing.duration = scanned_file.duration
+                            existing.format = scanned_file.format
+                            existing.bitrate = scanned_file.bitrate
+                            existing.sample_rate = scanned_file.sample_rate
+                            updated_count += 1
+                    else:
+                        song = Song(
+                            file_path=scanned_file.file_path,
+                            file_hash=scanned_file.file_hash,
+                            file_size=scanned_file.file_size,
+                            mtime=scanned_file.mtime,
+                            title=scanned_file.title,
+                            artist=scanned_file.artist,
+                            album=scanned_file.album,
+                            album_artist=scanned_file.album_artist,
+                            year=scanned_file.year,
+                            genre=scanned_file.genre,
+                            track_number=scanned_file.track_number,
+                            duration=scanned_file.duration,
+                            format=scanned_file.format,
+                            bitrate=scanned_file.bitrate,
+                            sample_rate=scanned_file.sample_rate
+                        )
+                        session.add(song)
+                        logger.debug(f"Added: {scanned_file.title or scanned_file.file_path}")
+                        new_count += 1
 
-    logger.info(f"✓ Scan complete: {scanned_count} files processed, {error_count} errors")
+                    if (new_count + updated_count) % 100 == 0:
+                        session.commit()
+
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Database error for {scanned_file.file_path}: {e}")
+                    session.rollback()
+                    continue
+        else:
+            # Use resumption-capable scanning
+            scan_iterator = resumption_scanner.scan_directory_with_resumption(
+                path, recursive=True, show_progress=True, resume_scan_id=resume_scan_id
+            )
+            
+            # Get existing files for this directory for batch processing
+            existing_files_cache = {}
+            
+            for scanned_file, scan_id in scan_iterator:
+                current_scan_id = scan_id
+                
+                if scanned_file.error:
+                    error_count += 1
+                    logger.error(f"Error scanning {scanned_file.file_path}: {scanned_file.error}")
+                    continue
+
+                try:
+                    # Check cache first, then database
+                    existing = existing_files_cache.get(scanned_file.file_path)
+                    if existing is None:
+                        existing = session.query(Song).filter_by(file_path=scanned_file.file_path).first()
+                        existing_files_cache[scanned_file.file_path] = existing
+
+                    if existing:
+                        if existing.mtime and existing.mtime >= scanned_file.mtime:
+                            logger.debug(f"Skipping unchanged file: {scanned_file.file_path}")
+                            skipped_count += 1
+                            continue
+                        else:
+                            logger.info(f"Updating modified file: {scanned_file.file_path}")
+                            existing.file_hash = scanned_file.file_hash
+                            existing.file_size = scanned_file.file_size
+                            existing.mtime = scanned_file.mtime
+                            existing.title = scanned_file.title
+                            existing.artist = scanned_file.artist
+                            existing.album = scanned_file.album
+                            existing.album_artist = scanned_file.album_artist
+                            existing.year = scanned_file.year
+                            existing.genre = scanned_file.genre
+                            existing.track_number = scanned_file.track_number
+                            existing.duration = scanned_file.duration
+                            existing.format = scanned_file.format
+                            existing.bitrate = scanned_file.bitrate
+                            existing.sample_rate = scanned_file.sample_rate
+                            updated_count += 1
+                    else:
+                        song = Song(
+                            file_path=scanned_file.file_path,
+                            file_hash=scanned_file.file_hash,
+                            file_size=scanned_file.file_size,
+                            mtime=scanned_file.mtime,
+                            title=scanned_file.title,
+                            artist=scanned_file.artist,
+                            album=scanned_file.album,
+                            album_artist=scanned_file.album_artist,
+                            year=scanned_file.year,
+                            genre=scanned_file.genre,
+                            track_number=scanned_file.track_number,
+                            duration=scanned_file.duration,
+                            format=scanned_file.format,
+                            bitrate=scanned_file.bitrate,
+                            sample_rate=scanned_file.sample_rate
+                        )
+                        session.add(song)
+                        existing_files_cache[scanned_file.file_path] = song
+                        logger.debug(f"Added: {scanned_file.title or scanned_file.file_path}")
+                        new_count += 1
+
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"Database error for {scanned_file.file_path}: {e}")
+                    session.rollback()
+                    continue
+
+        session.commit()
+
+    total_processed = new_count + updated_count + skipped_count
+    scan_msg = f"✓ Scan complete: {total_processed} files found ({new_count} new, {updated_count} updated, {skipped_count} skipped, {error_count} errors)"
+    if current_scan_id:
+        scan_msg += f" [Scan ID: {current_scan_id}]"
+    logger.info(scan_msg)
 
     if not no_extract:
         logger.info("Starting feature extraction...")
@@ -311,6 +439,17 @@ def generate(ctx, mood, count, name):
         logger.info(f"  ID: {playlist.id}")
         logger.info(f"  Duration: {playlist.total_duration / 60:.1f} minutes")
         logger.info(f"  Avg transition score: {playlist.avg_transition_score:.2f}")
+
+        # Auto-export the playlist
+        from src.generator.exporter import PlaylistExporter
+        output_dir = config.get('paths', 'playlists', default='/playlists')
+        music_path = config.get('paths', 'music', default='/music')
+        exporter = PlaylistExporter(db, output_dir, music_base_path=music_path)
+
+        # Export to M3U8 by default
+        output_file = exporter.export(playlist.id, 'm3u8')
+        if output_file:
+            logger.info(f"  Exported: {output_file}")
     else:
         logger.error("Failed to generate playlist")
         sys.exit(1)

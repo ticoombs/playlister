@@ -32,18 +32,35 @@ extraction:
   # Skip files modified more recently than this many seconds ago (to avoid incomplete files)
   min_file_age_seconds: 5
 
-# Supported audio formats
+# Supported audio formats (17 formats supported)
 audio_formats:
-  - .mp3
+  # Lossless formats
   - .flac
   - .wav
-  - .m4a
-  - .ogg
-  - .wma
+  - .aiff
+  - .aif
+  - .ape   # Monkey's Audio
+  - .wv    # WavPack
+  - .tta   # True Audio
+  - .tak   # TAK
+  # Lossy formats
+  - .mp3
+  - .ogg   # Ogg Vorbis
   - .opus
+  - .m4a   # AAC
+  - .mp4
+  - .mpc   # Musepack
+  - .wma   # Windows Media Audio
+  - .asf
+  - .spx   # Speex
 
 # Scanner Settings
 scanner:
+  # Parallel processing
+  workers: 4  # Number of parallel workers for scanning (1-CPU count, default: 4)
+              # Higher = faster scanning, but more CPU/memory usage
+              # Use 1 for sequential scanning if you encounter issues
+
   # Exclude directories matching these patterns from scanning
   # This prevents scanning playlist directories, backup folders, etc.
   # Patterns are matched against directory names (not full paths)

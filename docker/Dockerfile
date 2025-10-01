@@ -62,10 +62,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Essentia binaries and libraries from builder
-COPY --from=builder /usr/local/lib/python3.*/dist-packages/essentia /usr/local/lib/python3.10/dist-packages/essentia
-COPY --from=builder /usr/local/lib/libessentia.* /usr/local/lib/
-COPY --from=builder /usr/local/include/essentia /usr/local/include/essentia
+COPY --from=builder /usr/local/lib/python3/dist-packages/essentia /usr/local/lib/python3.10/dist-packages/essentia
 COPY --from=builder /usr/local/bin/essentia_* /usr/local/bin/
+COPY --from=builder /usr/local/include/essentia /usr/local/include/essentia
 
 # Update library cache
 RUN ldconfig
@@ -85,9 +84,10 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY src/ ./src/
 
-# Create necessary directories
+# Create necessary directories and fix permissions
 RUN mkdir -p /data /playlists /config && \
-    chown -R playlister:playlister /app /data /playlists /config
+    chown -R playlister:playlister /app /data /playlists /config && \
+    chmod -R 755 /app/src
 
 # Switch to non-root user
 USER playlister

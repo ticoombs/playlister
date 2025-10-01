@@ -202,6 +202,28 @@ class UserPreference(Base):
         return f"<UserPreference(key='{self.key}')>"
 
 
+class ScanProgress(Base):
+    """Track scanning progress for resumption capability."""
+    __tablename__ = 'scan_progress'
+
+    id = Column(Integer, primary_key=True)
+    scan_id = Column(String(36), unique=True, nullable=False, index=True)  # UUID
+    root_path = Column(String(512), nullable=False)
+    current_directory = Column(String(512))  # Last directory being processed
+    directories_completed = Column(JSON)  # List of completed directory paths
+    files_processed = Column(Integer, default=0)
+    files_added = Column(Integer, default=0)
+    files_updated = Column(Integer, default=0)
+    files_skipped = Column(Integer, default=0)
+    files_errored = Column(Integer, default=0)
+    status = Column(String(32), default='running', index=True)  # 'running', 'completed', 'interrupted', 'failed'
+    started_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ScanProgress(scan_id='{self.scan_id}', status='{self.status}', files={self.files_processed})>"
+
+
 class SchemaVersion(Base):
     """Track database schema version for migrations."""
     __tablename__ = 'schema_version'

@@ -32,7 +32,12 @@ class Config:
             'force_reextract': False,
             'min_file_age_seconds': 5
         },
-        'audio_formats': ['.mp3', '.flac', '.wav', '.m4a', '.ogg', '.wma', '.opus'],
+        'audio_formats': [
+            # Lossless formats
+            '.flac', '.wav', '.aiff', '.aif', '.ape', '.wv', '.tta', '.tak',
+            # Lossy formats
+            '.mp3', '.ogg', '.opus', '.m4a', '.mp4', '.mpc', '.wma', '.asf', '.spx'
+        ],
         'logging': {
             'level': 'INFO',
             'format': '[{time:YYYY-MM-DD HH:mm:ss}] {level: <8} | {message}',

@@ -17,7 +17,7 @@ from loguru import logger
 from .schema import Base, SchemaVersion
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 class Database:
@@ -36,12 +36,13 @@ class Database:
         self.engine: Optional[Engine] = None
         self.SessionLocal: Optional[sessionmaker] = None
 
-    def init(self, backup_on_startup: bool = True):
+    def init(self, backup_on_startup: bool = True, log_init: bool = True):
         """
         Initialize database, create tables if needed, run migrations.
 
         Args:
             backup_on_startup: Whether to backup database on startup
+            log_init: Whether to log initialization message (disable for worker processes)
         """
         # Create directory if it doesn't exist
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -79,7 +80,8 @@ class Database:
         # Run migrations
         self._run_migrations()
 
-        logger.info(f"Database initialized at {self.db_path}")
+        if log_init:
+            logger.info(f"Database initialized at {self.db_path}")
 
     @contextmanager
     def session_scope(self):
@@ -181,6 +183,10 @@ class Database:
         if version == 1:
             # Initial schema - already created by Base.metadata.create_all
             pass
+        elif version == 2:
+            # Add ScanProgress table for checkpoint-based resumption
+            # Table will be created by Base.metadata.create_all, so just mark as applied
+            pass
 
         # Record migration
         version_record = SchemaVersion(
@@ -207,7 +213,7 @@ class Database:
     def get_stats(self) -> dict:
         """Get database statistics."""
         with self.session_scope() as session:
-            from .schema import Song, Playlist, SongClassification
+            from .schema import Song, Playlist, SongClassification, ScanProgress
 
             stats = {
                 "total_songs": session.query(Song).count(),
@@ -218,6 +224,7 @@ class Database:
                 "manually_classified": session.query(SongClassification).filter(
                     SongClassification.manual_override == True
                 ).count(),
+                "interrupted_scans": session.query(ScanProgress).filter_by(status='running').count(),
                 "database_size_mb": self.db_path.stat().st_size / (1024 * 1024) if self.db_path.exists() else 0
             }
             return stats
